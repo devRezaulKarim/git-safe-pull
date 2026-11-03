@@ -173,3 +173,125 @@ export function scanChanges(changedFiles, diffText) {
     hasNewFiles: newFiles.length > 0
   };
 }
+
+/**
+ * Scan an entire repository (e.g. during git clone before checkout)
+ * @param {string[]} allFiles - Array of all relative file paths in repo
+ * @param {function(string): string} getFileContent - Function to read file content by path
+ */
+export function scanRepositoryFiles(allFiles, getFileContent) {
+  const warnings = [];
+
+  for (const filename of allFiles) {
+    const lowerName = filename.toLowerCase();
+
+    // 1. High-risk path checks
+    if (SUSPICIOUS_PATHS.some((p) => lowerName === p || lowerName.endsWith('/' + p))) {
+      warnings.push({
+        level: 'CRITICAL',
+        type: 'HIGH_RISK_FILE',
+        file: filename,
+        message: `Repository contains sensitive IDE/root execution file (${filename}).`
+      });
+    }
+
+    // 2. Suspicious extensions
+    const extMatch = SUSPICIOUS_EXTENSIONS.find((ext) => lowerName.endsWith(ext));
+    if (extMatch) {
+      warnings.push({
+        level: 'HIGH',
+        type: 'SUSPICIOUS_EXTENSION',
+        file: filename,
+        message: `Repository contains suspicious executable file (${filename}).`
+      });
+    }
+
+    // 3. Unconventional root file
+    if (!filename.includes('/') && !filename.includes('\\') && !filename.includes('.')) {
+      warnings.push({
+        level: 'HIGH',
+        type: 'UNCONVENTIONAL_ROOT_FILE',
+        file: filename,
+        message: `Repository contains extension-less script in root directory (${filename}).`
+      });
+    }
+
+    // 4. Content inspection on sensitive or flagged files
+    const shouldInspectContent =
+      lowerName.includes('.vscode/') ||
+      lowerName.endsWith('package.json') ||
+      extMatch ||
+      lowerName === 'init' ||
+      lowerName.endsWith('.js') ||
+      lowerName.endsWith('.mjs') ||
+      lowerName.endsWith('.json');
+
+    if (shouldInspectContent && typeof getFileContent === 'function') {
+      try {
+        const content = getFileContent(filename);
+        if (content) {
+          if (/"runOn"\s*:\s*"folderOpen"/i.test(content)) {
+            warnings.push({
+              level: 'CRITICAL',
+              type: 'VSCODE_AUTORUN_TASK',
+              file: filename,
+              message: `Detected task configured to execute automatically on "folderOpen" without user permission!`
+            });
+          }
+
+          if (/"task\.allowAutomaticTasks"\s*:\s*true/i.test(content)) {
+            warnings.push({
+              level: 'HIGH',
+              type: 'VSCODE_ALLOW_AUTO_TASKS',
+              file: filename,
+              message: `Detected setting allowing automatic task execution ("task.allowAutomaticTasks": true).`
+            });
+          }
+
+          if (lowerName.endsWith('package.json')) {
+            if (/(node\s+init|"node\s+[a-zA-Z0-9_\-\.\/]+\.orc"|curl\s+|wget\s+|powershell\s+|certutil\s+)/i.test(content)) {
+              warnings.push({
+                level: 'CRITICAL',
+                type: 'SUSPICIOUS_PACKAGE_SCRIPT',
+                file: filename,
+                message: `Detected suspicious scripts in package.json.`
+              });
+            }
+          }
+
+          const lines = content.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.length > 250 && /\s{25,}/.test(line)) {
+              warnings.push({
+                level: 'CRITICAL',
+                type: 'OFF_SCREEN_PADDING',
+                file: filename,
+                line: i + 1,
+                message: `Detected hidden off-screen code (line ${i + 1} has >250 chars with horizontal whitespace padding).`
+              });
+              break;
+            }
+          }
+
+          if (/\b(splitLane|TextDecoder|fromCharCode)\b/.test(content) && content.length > 200) {
+            warnings.push({
+              level: 'HIGH',
+              type: 'OBFUSCATED_PAYLOAD',
+              file: filename,
+              message: `Detected code obfuscation / reconstruction patterns.`
+            });
+          }
+        }
+      } catch {
+        // Ignore unreadable/binary files
+      }
+    }
+  }
+
+  return {
+    warnings,
+    hasCritical: warnings.some((w) => w.level === 'CRITICAL'),
+    hasWarnings: warnings.length > 0
+  };
+}

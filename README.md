@@ -1,6 +1,6 @@
-# 🛡️ git-safe-pull
+# 🛡️ git-safe-pull & git-safe-clone
 
-> **A safe, pre-merge security guardrail for `git pull` that catches malware, unauthorized new files, and hidden script injections BEFORE they touch your disk.**
+> **A safe pre-merge and pre-clone security shield for Git that catches malware, unauthorized new files, and hidden script injections BEFORE they touch your disk.**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,17 +8,19 @@
 
 ---
 
-## 🚨 Why git-safe-pull?
+## 🚨 The Threat: Why Standard `git pull` & `git clone` Are Dangerous
 
-Standard `git pull` fetches and merges files directly into your workspace. In modern developer-targeted supply chain attacks (such as **Lazarus / Contagious Interview** campaigns):
+In modern developer-targeted supply chain attacks (such as **Lazarus / Contagious Interview** campaigns):
 
-1. **Malicious `.vscode/tasks.json`** files are configured with `"runOn": "folderOpen"`. The millisecond `git pull` writes files to disk, your open VS Code editor automatically executes the malware silently in the background.
+1. **Malicious `.vscode/tasks.json`** files are configured with `"runOn": "folderOpen"`. The millisecond `git pull` or `git clone` writes files to disk, your open VS Code / Cursor editor automatically executes the malware silently in the background.
 2. **Hidden Executables**: Attackers disguise scripts inside fonts (e.g. `fa-brand-400.orc`) or root scripts (like `init`).
 3. **Off-Screen Padding**: Payloads are appended to files like `eslint.config.js` with hundreds of spaces pushing malicious code off-screen.
 4. **Script Tampering**: `package.json` scripts (`"build"`, `"dev"`) are modified to execute hidden scripts.
 5. **`.gitignore` Sabotage**: `.env` is removed so secrets are accidentally committed.
 
-`git-safe-pull` solves this by **fetching first into memory without writing to your disk**, analyzing the incoming diff against security rules, and requiring explicit manual confirmation if any new files or suspicious patterns are detected.
+This package provides two zero-dependency security tools:
+* **`git safe-pull`**: Fetches in memory first, analyzes the incoming diff, and prompts you before any new files or suspicious changes hit your disk.
+* **`git safe-clone`**: Clones with `--no-checkout`, inspects all files in memory, and gives you the option to safely delete the repository before malicious files ever touch your disk.
 
 ---
 
@@ -27,11 +29,6 @@ Standard `git pull` fetches and merges files directly into your workspace. In mo
 ### Global Installation via NPM:
 ```bash
 npm install -g git-safe-pull
-```
-
-*(Or run directly on demand without installing:)*
-```bash
-npx git-safe-pull
 ```
 
 ### Install Directly from GitHub:
@@ -43,31 +40,44 @@ npm install -g git+https://github.com/devRezaulKarim/git-safe-pull.git
 
 ## 🚀 Usage
 
-Once installed globally, you can run it inside any Git repository using:
+Because both tools follow Git's native `git-<command>` naming, Git discovers them automatically:
 
+### 1. Safe Pull
 ```bash
-git-safe-pull
-```
-
-### Setup as a Native Git Command / Alias:
-Git automatically recognizes `git-safe-pull` in your PATH! You can also set a convenient short alias:
-
-```bash
-git config --global alias.safe-pull "!git-safe-pull"
-git config --global alias.sp "!git-safe-pull"
-```
-
-Now you can simply run:
-```bash
+# In any Git repository:
 git safe-pull
-# or
+
+# Options:
+git safe-pull --diff       # Review full diff
+git safe-pull --dry-run    # Inspect without merging
+git safe-pull --strict     # Require approval on any pull
+```
+
+### 2. Safe Clone
+```bash
+# Clone and verify before files touch your disk:
+git safe-clone https://github.com/user/untrusted-repo.git
+
+# Options:
+git safe-clone https://github.com/user/untrusted-repo.git my-folder
+git safe-clone https://github.com/user/untrusted-repo.git --dry-run
+```
+
+### Optional Quick 2-Letter Shortcuts:
+```bash
+git config --global alias.sp "!git-safe-pull"
+git config --global alias.sc "!git-safe-clone"
+
+# Now run:
 git sp
+git sc <repo-url>
 ```
 
 ---
 
 ## 🔍 How It Works
 
+### During `git safe-pull`:
 ```
 1. git fetch            (Updates git refs safely in memory; workspace untouched)
        │
@@ -79,6 +89,20 @@ git sp
        New Files?            [v] View incoming diff
                              [y] Approve and merge
                              [n] Abort (leaves workspace completely untouched)
+```
+
+### During `git safe-clone`:
+```
+1. git clone --no-checkout  (Metadata only; ZERO files on disk)
+       │
+2. Security Scanner         (Inspects all files and configs in memory)
+       │
+3. Evaluation:
+   ├── Clean?               ───► Checks out files cleanly to disk!
+   └── Suspicious /         ───► 🚨 Display warning alert table
+       Malware Detected?         [a] Abort and delete repo (safe!)
+                                 [c] Checkout anyway
+                                 [l] List repository files
 ```
 
 ---
@@ -94,19 +118,6 @@ git sp
 | **Suspicious Extensions** | Detects `.orc`, `.bat`, `.cmd`, `.vbs`, `.ps1`, `.exe`, `.bin`. | ⚠️ **HIGH** Alert |
 | **`.gitignore` Tampering** | Detects deletion of `.env` or `*.env` from `.gitignore`. | ⚠️ **HIGH** Alert |
 | **Obfuscated Payloads** | Detects `splitLane`, `TextDecoder`, `eval(`, `Function()`. | ⚠️ **HIGH** Alert |
-
----
-
-## ⚙️ CLI Options
-
-| Flag | Description |
-| :--- | :--- |
-| `--diff` | Display the full interactive incoming diff before prompting. |
-| `--dry-run` | Fetch and run the security scan without merging. |
-| `-y, --force` | Bypass confirmation prompts and merge automatically. |
-| `--strict` | Require manual approval for **all** pulls, even if clean. |
-| `-h, --help` | Display help and usage information. |
-| `-v, --version` | Display version number. |
 
 ---
 

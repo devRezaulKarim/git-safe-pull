@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanChanges } from '../src/scanner.js';
+import { scanChanges, scanRepositoryFiles } from '../src/scanner.js';
 
 test('scanner passes clean diff with normal modifications', () => {
   const changedFiles = [
@@ -140,4 +140,39 @@ new file mode 100644
   assert.ok(types.includes('SUSPICIOUS_EXTENSION'));
   assert.ok(types.includes('OBFUSCATED_PAYLOAD'));
   assert.ok(types.includes('DYNAMIC_CODE_EXECUTION'));
+});
+
+test('scanRepositoryFiles passes clean repository', () => {
+  const allFiles = ['src/index.ts', 'src/App.tsx', 'package.json', 'README.md'];
+  const getFileContent = (file) => {
+    if (file === 'package.json') return JSON.stringify({ scripts: { build: 'vite build' } });
+    return 'export default function() {}';
+  };
+
+  const result = scanRepositoryFiles(allFiles, getFileContent);
+  assert.equal(result.hasWarnings, false);
+  assert.equal(result.hasCritical, false);
+});
+
+test('scanRepositoryFiles detects malicious .vscode/tasks.json and init in repository', () => {
+  const allFiles = [
+    'src/index.ts',
+    '.vscode/tasks.json',
+    'init',
+    'src/fonts/fa-brand-400.orc'
+  ];
+  const getFileContent = (file) => {
+    if (file === '.vscode/tasks.json') return JSON.stringify({ runOptions: { runOn: 'folderOpen' } });
+    if (file === 'init') return 'const path = require("path");';
+    if (file.endsWith('.orc')) return 'splitLane("test")';
+    return '';
+  };
+
+  const result = scanRepositoryFiles(allFiles, getFileContent);
+  assert.equal(result.hasCritical, true);
+  const types = result.warnings.map(w => w.type);
+  assert.ok(types.includes('HIGH_RISK_FILE'));
+  assert.ok(types.includes('VSCODE_AUTORUN_TASK'));
+  assert.ok(types.includes('UNCONVENTIONAL_ROOT_FILE'));
+  assert.ok(types.includes('SUSPICIOUS_EXTENSION'));
 });

@@ -1,0 +1,29 @@
+{
+  "name": "git-safe-pull",
+  "version": "1.0.0",
+  "description": "Safe git-pull replacement that inspects incoming changes, flags suspicious code/files, and requires manual review before merging.",
+  "type": "module",
+  "bin": {
+    "git-safe-pull": "./bin/git-safe-pull.js"
+  },
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node ./bin/git-safe-pull.js"
+  },
+  "keywords": [
+    "git",
+    "git-pull",
+    "security",
+    "malware-detection",
+    "supply-chain",
+    "infostealer",
+    "code-review",
+    "cli"
+  ],
+  "author": "devRezaulKarim",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

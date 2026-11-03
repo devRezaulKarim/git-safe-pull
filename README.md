@@ -40,37 +40,33 @@ npm install -g git+https://github.com/devRezaulKarim/git-safe-pull.git
 
 ## 🚀 Usage
 
-Because both tools follow Git's native `git-<command>` naming, Git discovers them automatically:
+The commands work directly as native Git subcommands **out of the box with zero configuration**. You can use either the full command or the built-in 2-letter shortcuts:
 
-### 1. Safe Pull
+### 1. Safe Pull: `git sp` (or `git safe-pull`)
 ```bash
 # In any Git repository:
+git sp
+
+# Or type the full command:
 git safe-pull
 
-# Options:
-git safe-pull --diff       # Review full diff
-git safe-pull --dry-run    # Inspect without merging
-git safe-pull --strict     # Require approval on any pull
+# Useful Options:
+git sp --diff       # Review full incoming diff before merging
+git sp --dry-run    # Inspect and scan without merging
+git sp --strict     # Require manual approval on any pull, even if clean
 ```
 
-### 2. Safe Clone
+### 2. Safe Clone: `git sc` (or `git safe-clone`)
 ```bash
 # Clone and verify before files touch your disk:
+git sc https://github.com/user/untrusted-repo.git
+
+# Or type the full command:
 git safe-clone https://github.com/user/untrusted-repo.git
 
-# Options:
-git safe-clone https://github.com/user/untrusted-repo.git my-folder
-git safe-clone https://github.com/user/untrusted-repo.git --dry-run
-```
-
-### Optional Quick 2-Letter Shortcuts:
-```bash
-git config --global alias.sp "!git-safe-pull"
-git config --global alias.sc "!git-safe-clone"
-
-# Now run:
-git sp
-git sc <repo-url>
+# Useful Options:
+git sc https://github.com/user/untrusted-repo.git my-folder
+git sc https://github.com/user/untrusted-repo.git --dry-run
 ```
 
 ---
